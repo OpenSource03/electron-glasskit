@@ -1,40 +1,42 @@
-# dependencies (bun install)
+# dependencies
 node_modules
 
-# output
-out
+# build output
 dist
-dist-examples
+out
 *.tgz
 
-# code coverage
-coverage
-*.lcov
-
-# logs
-logs
-_.log
-report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
-
-# dotenv environment variable files
-.env
-.env.development.local
-.env.test.local
-.env.production.local
-.env.local
-
-# caches
-.eslintcache
-.cache
-*.tsbuildinfo
-
-# IntelliJ based IDEs
-.idea
-
-# Finder (MacOS) folder config
-.DS_Store
-
-# Native build artefacts
+# native build artefacts
 build
 prebuilds
 *.node
+.build
+.swiftpm
+DerivedData
+
+# test output
+coverage
+*.lcov
+test-results
+playwright-report
+
+# logs
+logs
+*.log
+
+# environment files
+.env
+.env.*
+!.env.example
+
+# caches
+.cache
+.eslintcache
+*.tsbuildinfo
+
+# editors and OS
+.idea
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+.boost

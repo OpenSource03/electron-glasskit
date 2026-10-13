@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      html, body { margin: 0; }
+      body { height: 3000px; }
+      #bar { position: fixed; left: 40px; right: 40px; bottom: 20px; height: 56px; }
+      #a, #b { position: fixed; top: 20px; height: 60px; }
+      #a { left: 40px; width: 200px; }
+      #b { left: 260px; width: 60px; }
+      #row { position: absolute; left: 100px; top: 400px; width: 300px; height: 64px; }
+      #island { position: fixed; left: 40px; top: 120px; width: 320px; }
+    </style>
+  </head>
+  <body>
+    <div id="bar"></div>
+    <div id="a"></div>
+    <div id="b"></div>
+    <div id="row"></div>
+    <div id="island"></div>
+    <script type="module">
+      import { bindIsland, bindRegion, createGroup, getCapabilities, ui } from "../../dist/renderer.js";
+
+      const $ = (id) => document.getElementById(id);
+      window.state = { capabilities: await getCapabilities(), events: [] };
+
+      bindRegion($("bar"), { cornerRadius: 28, tint: "#0a84ff22" });
+      const group = createGroup({ spacing: 40 });
+      bindRegion($("a"), { cornerRadius: 30, group });
+      bindRegion($("b"), { cornerRadius: 30, group });
+      window.row = bindRegion($("row"), { cornerRadius: 20 });
+
+      const island = bindIsland($("island"), {
+        fit: "height",
+        content: ui.hstack({ padding: 12, glass: { shape: { type: "rect", cornerRadius: 20 } } }, [
+          ui.textField({ id: "note", placeholder: "Note", multiline: true }),
+        ]),
+      });
+      island.on("resize", (event) => window.state.events.push(event));
+      window.island = island;
+    </script>
+  </body>
+</html>
