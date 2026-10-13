@@ -381,8 +381,8 @@ underneath it, so the page shows through, bent and blurred.
 - **Interactive glass takes the click.** A region with `interactive: true` reacts to presses, so they do not
   reach the page.
 
-Tested on macOS 27 with Electron 44. The blur fallback for macOS 25 and earlier compiles but has not been run
-on such a system.
+Tested on macOS 26 and 27 with Electron 44. The blur fallback for macOS 25 and earlier compiles but has not
+been run on such a system.
 
 ## Coming from electron-liquid-glass
 
