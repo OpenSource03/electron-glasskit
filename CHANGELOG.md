@@ -1,98 +1,48 @@
 # Changelog
 
-## [1.1.1] - 2025-09-17
+All notable changes to this project are documented in this file.
 
-### Added
-- Release 1.1.1
-
-## [1.1.0] - 2025-09-09
-
-### Added
-- Release 1.1.0
-
-## [1.0.1] - 2025-06-27
-
-### Added
-- Release 1.0.1
-
-## [1.0.0] - 2025-06-27
-
-### Added
-- Release 1.0.0
-
-## [0.1.8] - 2025-06-17
-
-### Added
-- Release 0.1.8
-
-## [0.1.7] - 2025-06-17
-
-### Added
-- Release 0.1.7
-
-## [0.1.6] - 2025-06-17
-
-### Added
-- Release 0.1.6
-
-## [0.1.5] - 2025-06-17
-
-### Added
-- Release 0.1.5
-
-## [0.1.4] - 2025-06-17
-
-### Added
-- Release 0.1.4
-
-## [0.1.3] - 2025-06-17
-
-### Added
-- Release 0.1.3
-
-## [0.1.2] - 2025-06-17
-
-### Added
-- Release 0.1.2
-
-## [0.1.1] - 2025-06-17
-
-### Added
-- Release 0.1.1
-
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 0.1.0
+electron-glasskit is a fork of [electron-liquid-glass](https://github.com/Meridius-Labs/electron-liquid-glass)
+1.1.1 (MIT) and is being rewritten. The upstream history is not carried over.
+
+## [Unreleased]
+
+## [0.1.0] - Unreleased
+
+The first release under this name. Compared with electron-liquid-glass 1.1.1:
 
 ### Added
 
-- Modern dual-package ESM/CJS build system with tsdown
-- Comprehensive GitHub Actions CI/CD pipeline
-- Automated dependency updates with Dependabot
-- TypeScript declarations for both ESM and CJS
-- Native macOS glass effects using NSGlassEffectView
-- Interactive example application with real-time controls
-- Support for glass variants, scrim states, and subdued states
+- **Glass above the page.** `attachGlass(window).addRegion()` places Liquid Glass at any rectangle over the web
+  content, with `style`, `tint`, `cornerRadius`, `appearance`, `interactive`, `zIndex` and click pass-through.
+  Regions can be updated, moved (optionally animated) and removed.
+- **Merging groups.** Regions added to `addGroup()` flow into each other when they come close.
+- **Islands.** `addIsland()` renders a JSON-described SwiftUI tree natively: stacks, text, SF Symbols, shapes,
+  buttons, toggles, sliders, pickers, menus and single or multi-line text fields, with events sent back to
+  JavaScript, animated morphing between trees, and content-driven sizing.
+- **Shaped glass.** Capsules, circles, rounded rectangles, SVG paths and text outlines.
+- **Panels.** `createPanel()` opens a see-through child window so HTML can sit on glass.
+- **Frames that follow the window.** Any frame can be a function of the window's content size.
+- **DOM bindings** in `electron-glasskit/renderer` (`bindRegion`, `bindIsland`, `createGroup`), which mirror
+  elements to native glass and follow them through layout, scroll and zoom, with a CSS fallback where glass
+  is unavailable.
+- **React bindings** in `electron-glasskit/react`: `<Glass>`, `<GlassGroup>`, `<GlassIsland>` and hooks.
+- **A preload bridge** that works with context isolation and the sandbox, installed with `installPreload()`.
+- `getCapabilities()`, `glassWindowOptions()` and `host.inspect()`.
 
 ### Changed
 
-- Migrated from JavaScript to TypeScript source
-- Updated build system to use modern tooling
-- Enhanced README with comprehensive documentation
+- The window background is now `attachGlass(window).setBackground()`. It can be updated and cleared, and it
+  uses the public `NSGlassEffectView` API instead of looking the class up by name.
+- Glass views live outside the layer Electron re-sorts, so adding web views no longer buries them.
+- The package installs on every platform and does nothing off macOS, instead of failing to install.
+- Nothing is compiled on install; binaries for Apple silicon and Intel are prebuilt.
+- TypeScript types cover the whole API, for both ESM and CommonJS.
 
-### Security
+### Deprecated
 
-- Added security audit checks in CI pipeline
-- Configured automated vulnerability scanning
+- `liquidGlass.addView()` and its `unstable_set*` methods. They still work; use `setBackground()`.
 
-## [0.1.0] - 2025-06-16
-
-### Added
-
-- Initial release
-- Basic glass effect functionality for Electron on macOS
-- Native NSGlassEffectView integration
-- Corner radius and tint color support

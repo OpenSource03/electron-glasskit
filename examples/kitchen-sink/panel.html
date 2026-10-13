@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      :root { color-scheme: light dark; }
+      html, body { margin: 0; height: 100%; background: transparent; font: 15px -apple-system, sans-serif; overflow: hidden; }
+      form { height: 100%; display: flex; align-items: flex-end; gap: 10px; padding: 9px 9px 9px 22px; box-sizing: border-box; }
+      textarea { flex: 1; border: 0; outline: 0; resize: none; background: transparent; font: inherit; line-height: 20px; color: CanvasText; padding: 9px 0; margin: 0; max-height: 204px; }
+      textarea::placeholder { color: color-mix(in srgb, CanvasText 55%, transparent); }
+      button { width: 38px; height: 38px; border-radius: 19px; border: 0; background: #0a84ff; color: #fff; font-size: 18px; }
+    </style>
+  </head>
+  <body>
+    <form id="form">
+      <textarea id="field" rows="1" placeholder="Message (an HTML textarea)"></textarea>
+      <button type="submit" aria-label="Send">↑</button>
+    </form>
+    <script>
+      const field = document.getElementById("field");
+
+      // Shrink to one line first so the measured height can go down as well as up.
+      function resize() {
+        field.style.height = "20px";
+        field.style.height = `${field.scrollHeight - 18}px`;
+        window.demo.setBarHeight(field.scrollHeight + 18);
+      }
+
+      function submit() {
+        if (!field.value.trim()) return;
+        window.demo.send(field.value);
+        field.value = "";
+        resize();
+      }
+
+      field.addEventListener("input", resize);
+      field.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
+        event.preventDefault();
+        submit();
+      });
+      document.getElementById("form").addEventListener("submit", (event) => {
+        event.preventDefault();
+        submit();
+      });
+    </script>
+  </body>
+</html>
