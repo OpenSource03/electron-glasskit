@@ -1,45 +1,38 @@
 version: 2
 updates:
-  # Enable version updates for npm
-  - package-ecosystem: "npm"
-    directory: "/"
+  - package-ecosystem: npm # also covers pnpm lockfiles
+    directory: /
+    target-branch: master
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: weekly
+      day: monday
       time: "09:00"
-      timezone: "Etc/UTC"
+      timezone: Etc/UTC
     open-pull-requests-limit: 10
-    reviewers:
-      - "meridius-labs"
-    assignees:
-      - "meridius-labs"
     commit-message:
-      prefix: "deps"
-      include: "scope"
-    labels:
-      - "dependencies"
-      - "automated"
+      prefix: chore
+      include: scope
+    groups:
+      dev-dependencies:
+        dependency-type: development
+        update-types: [minor, patch]
     ignore:
-      # Ignore major version updates for critical dependencies
-      - dependency-name: "electron"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "node-addon-api"
+      # Electron majors need a deliberate peer-range and e2e review.
+      - dependency-name: electron
         update-types: ["version-update:semver-major"]
 
-  # Enable version updates for GitHub Actions
-  - package-ecosystem: "github-actions"
-    directory: "/"
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: master
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: weekly
+      day: monday
       time: "09:00"
-      timezone: "Etc/UTC"
+      timezone: Etc/UTC
     open-pull-requests-limit: 5
-    reviewers:
-      - "meridius-labs"
     commit-message:
-      prefix: "ci"
-      include: "scope"
-    labels:
-      - "github-actions"
-      - "automated" 
+      prefix: ci
+      include: scope
+    groups:
+      github-actions:
+        patterns: ["*"]
