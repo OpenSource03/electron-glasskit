@@ -1,0 +1,236 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Run every check and `npm publish --dry-run`; publish nothing
+        type: boolean
+        default: true
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run }}
+
+jobs:
+  verify:
+    name: Verify and build (macOS)
+    # macos-26 is arm64 with Xcode 26.6 as the default Xcode (runner-images README, 2026-10-13).
+    runs-on: macos-26
+    timeout-minutes: 60
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      dist-tag: ${{ steps.meta.outputs.dist-tag }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
+      dry-run: ${{ steps.meta.outputs.dry-run }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check the tag matches package.json
+        id: meta
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::package.json version '$version' is not a valid semver version"
+            exit 1
+          fi
+          if [ "$REF_TYPE" = "tag" ]; then
+            if [ "$REF_NAME" != "v$version" ]; then
+              echo "::error::Tag '$REF_NAME' does not match package.json version (expected 'v$version')"
+              exit 1
+            fi
+          elif [ "$DRY_RUN" = "true" ]; then
+            echo "::notice::Dry run from branch '$REF_NAME'; the tag check is skipped"
+          else
+            echo "::error::A real publish must run from a v*.*.* tag, not '$REF_NAME'"
+            exit 1
+          fi
+          case "$version" in
+            *-*) dist_tag=next; prerelease=true ;;
+            *) dist_tag=latest; prerelease=false ;;
+          esac
+          {
+            echo "version=$version"
+            echo "dist-tag=$dist_tag"
+            echo "prerelease=$prerelease"
+            echo "dry-run=$DRY_RUN"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Toolchain info
+        run: |
+          sw_vers
+          xcodebuild -version
+          xcrun --sdk macosx --show-sdk-version
+          swiftc --version
+
+      - name: Require the macOS 26 SDK
+        run: |
+          sdk="$(xcrun --sdk macosx --show-sdk-version)"
+          if [ "${sdk%%.*}" -lt 26 ]; then
+            echo "::error::macOS SDK $sdk found, but 26 or newer is required (select Xcode 26+ with xcode-select)"
+            exit 1
+          fi
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      # No dependency cache in release builds, so a poisoned cache cannot reach the published files.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+
+      - name: Build native addon (arm64 and x64)
+        run: pnpm build:native --arch arm64,x64
+
+      - run: pnpm test:swift
+      - run: pnpm build
+
+      # Electron's binary is not always fetched by the install lifecycle; this is a no-op when present.
+      - name: Fetch Electron binary
+        run: node node_modules/electron/install.js
+
+      - name: End-to-end tests
+        timeout-minutes: 15
+        run: pnpm test:e2e
+
+      - run: pnpm check:package
+
+      - name: Check both prebuilds exist
+        run: |
+          test -f prebuilds/darwin-arm64/glasskit.node
+          test -f prebuilds/darwin-x64/glasskit.node
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: prebuilds
+          path: prebuilds/
+          if-no-files-found: error
+          retention-days: 7
+
+  # Runs no dependency install scripts and holds the only OIDC token; it publishes the files `verify` built.
+  publish:
+    name: Publish to npm
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: dist
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: prebuilds
+          path: prebuilds
+
+      # registry-url is kept because the npm trusted publishing docs include it.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      # Trusted publishing needs npm 11.5.1 or newer (Node 24 ships 11.x, so this is normally a no-op).
+      - name: Ensure npm supports trusted publishing
+        run: |
+          required=11.5.1
+          current="$(npm --version)"
+          if [ "$(printf '%s\n%s\n' "$required" "$current" | sort -V | head -n1)" != "$required" ]; then
+            npm install -g npm@11
+          fi
+          npm --version
+
+      - name: Check build output is present
+        run: |
+          test -f dist/index.js
+          test -f prebuilds/darwin-arm64/glasskit.node
+          test -f prebuilds/darwin-x64/glasskit.node
+
+      - name: Publish
+        env:
+          # Optional fallback for the very first publish, before a trusted publisher can be configured.
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          DIST_TAG: ${{ needs.verify.outputs.dist-tag }}
+          DRY_RUN: ${{ needs.verify.outputs.dry-run }}
+        run: |
+          # dist/ and prebuilds/ were built and verified in the previous job, so skip the prepack rebuild.
+          args=(--access public --provenance --tag "$DIST_TAG" --ignore-scripts)
+          if [ "$DRY_RUN" = "true" ]; then
+            args+=(--dry-run)
+          fi
+          if [ -n "$NPM_TOKEN" ]; then
+            echo "Publishing with the NPM_TOKEN secret"
+            export NODE_AUTH_TOKEN="$NPM_TOKEN"
+          else
+            echo "Publishing with npm trusted publishing (OIDC)"
+          fi
+          npm publish "${args[@]}"
+
+  github-release:
+    name: GitHub Release
+    needs: [verify, publish]
+    if: needs.verify.outputs.dry-run == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: prebuilds
+          path: prebuilds
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+          PRERELEASE: ${{ needs.verify.outputs.prerelease }}
+        run: |
+          mkdir assets
+          for dir in prebuilds/*/; do
+            name="$(basename "$dir")"
+            cp "$dir/glasskit.node" "assets/glasskit-$name.node"
+          done
+          ls -l assets
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" assets/* --clobber
+          else
+            flags=(--verify-tag --generate-notes --title "$TAG")
+            if [ "$PRERELEASE" = "true" ]; then
+              flags+=(--prerelease)
+            fi
+            gh release create "$TAG" "${flags[@]}" assets/*
+          fi
