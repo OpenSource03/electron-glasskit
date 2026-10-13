@@ -27,7 +27,9 @@ struct NodeShape: Shape {
         let box = box ?? outline.boundingBoxOfPath
         guard !box.isNull else { return Path() }
         // A flat outline (a straight line) only constrains one axis.
-        let scales = [(rect.width, box.width), (rect.height, box.height)].filter { $0.1 > 0 }.map { $0.0 / $0.1 }
+        var scales: [CGFloat] = []
+        if box.width > 0 { scales.append(rect.width / box.width) }
+        if box.height > 0 { scales.append(rect.height / box.height) }
         guard let scale = scales.min(), scale.isFinite else { return Path() }
         let vertical = flipped ? -scale : scale
         let transform = CGAffineTransform(translationX: rect.midX - box.midX * scale, y: rect.midY - box.midY * vertical)

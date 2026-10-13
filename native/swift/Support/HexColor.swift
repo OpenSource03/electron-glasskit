@@ -22,8 +22,12 @@ enum HexColor {
             // Each digit stands for a doubled pair: 0xF -> 0xFF.
             return Components(red: digits[0] / 15, green: digits[1] / 15, blue: digits[2] / 15, alpha: 1)
         case 6, 8:
-            let channels = stride(from: 0, to: digits.count, by: 2).map { (digits[$0] * 16 + digits[$0 + 1]) / 255 }
-            return Components(red: channels[0], green: channels[1], blue: channels[2], alpha: digits.count == 8 ? channels[3] : 1)
+            func channel(_ index: Int) -> Double {
+                let value: Double = digits[index * 2] * 16 + digits[index * 2 + 1]
+                return value / 255
+            }
+            let alpha: Double = digits.count == 8 ? channel(3) : 1
+            return Components(red: channel(0), green: channel(1), blue: channel(2), alpha: alpha)
         default:
             return nil
         }
