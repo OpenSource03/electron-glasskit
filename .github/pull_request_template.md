@@ -1,36 +1,16 @@
-## Description
+## What and why
 
-Brief description of what this PR does.
+<!-- What does this change, and why? Link related issues. -->
 
-## Type of Change
+## Type
 
-- [ ] Bug fix (non-breaking change which fixes an issue)
-- [ ] New feature (non-breaking change which adds functionality)
-- [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
-- [ ] Documentation update
-- [ ] Performance improvement
-- [ ] Code refactoring
+- [ ] Fix
+- [ ] Feature
+- [ ] Breaking change
+- [ ] Docs, tests or tooling
 
-## Testing
+## Checks
 
-- [ ] I have tested this change locally
-- [ ] I have added tests that prove my fix is effective or that my feature works
-- [ ] New and existing unit tests pass locally with my changes
-- [ ] I have tested on macOS (required for this project)
-
-## Checklist
-
-- [ ] My code follows the style guidelines of this project
-- [ ] I have performed a self-review of my own code
-- [ ] I have commented my code, particularly in hard-to-understand areas
-- [ ] I have made corresponding changes to the documentation
-- [ ] My changes generate no new warnings
-- [ ] Any dependent changes have been merged and published
-
-## Screenshots (if applicable)
-
-Add screenshots to help explain your changes.
-
-## Additional Notes
-
-Add any other notes about the PR here.
+- [ ] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass
+- [ ] Native changes: `pnpm build:native`, `pnpm test:swift` and `pnpm test:e2e` pass on macOS 26 or newer
+- [ ] Docs and `CHANGELOG.md` updated where behaviour changed

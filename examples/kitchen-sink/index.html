@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>electron-glasskit</title>
+    <style>
+      html, body { margin: 0; background: #f4f1ea; font: 15px/1.45 -apple-system, sans-serif; color: #1b1b1f; }
+      #controls { position: fixed; inset: 0 auto 0 0; width: 250px; box-sizing: border-box; padding: 48px 16px 18px; background: #fff; border-inline-end: 1px solid #ddd; overflow-y: auto; font-size: 13px; z-index: 2; }
+      #controls h1 { font-size: 15px; margin: 0 0 12px; }
+      #controls fieldset { border: 0; border-top: 1px solid #e6e6e6; margin: 0; padding: 10px 0; display: grid; gap: 6px; }
+      #controls legend { font-weight: 600; padding: 0; }
+      #controls label { display: flex; align-items: center; gap: 6px; }
+      #controls input[type="text"], #controls select, #controls button { width: 100%; box-sizing: border-box; font: inherit; }
+      #controls input[type="range"] { flex: 1; }
+      #log { font: 11px/1.4 ui-monospace, monospace; color: #555; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 110px; overflow-y: auto; }
+      #feed { padding: 190px 40px 220px 290px; display: flex; flex-direction: column; gap: 14px; }
+      .msg { max-width: 62%; padding: 12px 16px; border-radius: 20px; overflow-wrap: anywhere; white-space: pre-wrap; }
+      .msg.me { align-self: flex-end; color: #fff; }
+      .msg.them { align-self: flex-start; background: #fff; }
+      .photo { width: 320px; height: 190px; border-radius: 20px; }
+      .stripe { height: 34px; border-radius: 10px; }
+      .anchor { position: fixed; pointer-events: none; }
+      #bar { left: 300px; right: 50px; bottom: 24px; min-height: 56px; }
+      #tools { left: 300px; bottom: 96px; }
+      #panel { right: 50px; top: 190px; width: 340px; height: 220px; }
+      #shape { left: 300px; right: 50px; top: 40px; height: 140px; }
+      #drop-a { left: 300px; top: 200px; width: 220px; height: 60px; }
+      #drop-b { top: 200px; width: 60px; height: 60px; }
+      .tile { top: 290px; width: 84px; height: 84px; }
+      #row { align-self: center; width: 420px; height: 64px; flex: none; }
+    </style>
+  </head>
+  <body>
+    <aside id="controls">
+      <h1>electron-glasskit</h1>
+      <fieldset>
+        <legend>Input bar</legend>
+        <select id="c-bar">
+          <option value="native">Native SwiftUI island</option>
+          <option value="html">HTML in a glass panel</option>
+          <option value="region">Glass only</option>
+          <option value="off">Off</option>
+        </select>
+      </fieldset>
+      <fieldset>
+        <legend>SwiftUI tool strip</legend>
+        <label><input type="checkbox" id="c-tools" checked /> Show (press the plus)</label>
+      </fieldset>
+      <fieldset>
+        <legend>Panel</legend>
+        <label><input type="checkbox" id="c-panel" /> Show</label>
+        <label><input type="checkbox" id="c-clear" /> Clear style</label>
+        <label><input type="checkbox" id="c-press" /> Press feedback (takes clicks)</label>
+        <label><input type="checkbox" id="c-tint" /> Tint <input type="color" id="c-tintcolor" value="#ff2d55" /></label>
+      </fieldset>
+      <fieldset>
+        <legend>Shaped glass</legend>
+        <label><input type="checkbox" id="c-shape" /> Show</label>
+        <input type="text" id="c-word" value="GLASS" maxlength="10" />
+      </fieldset>
+      <fieldset>
+        <legend>Merging droplets</legend>
+        <label><input type="checkbox" id="c-drops" /> Show</label>
+        <label>Gap <input type="range" id="c-gap" min="-30" max="120" value="60" /></label>
+      </fieldset>
+      <fieldset>
+        <legend>Undocumented material presets</legend>
+        <label><input type="checkbox" id="c-tiles" /> Show six</label>
+      </fieldset>
+      <fieldset>
+        <legend>Glass on a scrolling row</legend>
+        <label><input type="checkbox" id="c-row" /> Show, then scroll</label>
+      </fieldset>
+      <fieldset>
+        <legend>Whole-window glass</legend>
+        <button type="button" id="c-window">Open a glass window</button>
+      </fieldset>
+      <fieldset>
+        <legend>Events from native</legend>
+        <div id="log">none yet</div>
+      </fieldset>
+    </aside>
+
+    <div id="feed"></div>
+    <div id="bar" class="anchor"></div>
+    <div id="tools" class="anchor"></div>
+    <div id="panel" class="anchor"></div>
+    <div id="shape" class="anchor"></div>
+    <div id="drop-a" class="anchor"></div>
+    <div id="drop-b" class="anchor"></div>
+
+    <script type="module">
+      // In your own app: import from "electron-glasskit/renderer".
+      import { bindIsland, bindRegion, createGroup, GlassVariant, ui } from "../../dist/renderer.js";
+
+      const $ = (id) => document.getElementById(id);
+      const feed = $("feed");
+
+      // --- The page itself: a chat feed to look at through the glass -------------------------
+
+      const hues = [8, 28, 48, 140, 190, 215, 265, 320];
+      const lines = [
+        "Did the build pass on the new branch?",
+        "Yes, and the glass bends the page now.",
+        "Scroll and watch the colours move through it.",
+        "This row is plain DOM in the web page.",
+        "Type in the bar below and press Return.",
+      ];
+
+      function bubble(text, mine, hue) {
+        const element = document.createElement("div");
+        element.className = `msg ${mine ? "me" : "them"}`;
+        if (mine) element.style.background = `hsl(${hue} 80% 48%)`;
+        element.textContent = text;
+        return element;
+      }
+
+      for (let index = 0; index < 70; index++) {
+        const hue = hues[index % hues.length];
+        if (index % 7 === 3) {
+          const photo = document.createElement("div");
+          photo.className = "photo";
+          photo.style.alignSelf = index % 2 ? "flex-end" : "flex-start";
+          photo.style.background = `conic-gradient(from ${index * 40}deg, hsl(${hue} 90% 55%), hsl(${hue + 80} 90% 60%), hsl(${hue + 200} 90% 55%), hsl(${hue} 90% 55%))`;
+          feed.append(photo);
+        } else if (index % 7 === 5) {
+          const stripe = document.createElement("div");
+          stripe.className = "stripe";
+          stripe.style.background = `repeating-linear-gradient(90deg, hsl(${hue} 85% 50%) 0 22px, #111 22px 44px)`;
+          feed.append(stripe);
+        } else {
+          feed.append(bubble(`${index}. ${lines[index % lines.length]}`, index % 2, hue));
+        }
+      }
+      const row = document.createElement("div");
+      row.id = "row";
+      feed.insertBefore(row, feed.children[8]);
+
+      function post(text) {
+        feed.append(bubble(text, true, 215));
+        window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+      }
+      window.demo.onMessage(post);
+
+      const events = [];
+      function log(text) {
+        events.unshift(text);
+        $("log").textContent = events.slice(0, 8).join("\n");
+      }
+
+      // --- Input bar: a native text field on glass that grows with its text -------------------
+
+      const composer = ui.hstack(
+        { spacing: 10, alignment: "bottom", padding: { leading: 22, trailing: 9, vertical: 9 }, glass: { shape: { type: "rect", cornerRadius: 28 } } },
+        [
+          ui.textField({ id: "message", placeholder: "Message", multiline: true, clearOnSubmit: true, font: { size: 15 }, padding: { vertical: 10 } }),
+          ui.button({
+            id: "send",
+            label: ui.symbol("arrow.up", { size: 15, weight: "bold", foreground: "#fff", frame: { width: 38, height: 38 } }),
+            glass: { tint: "#0a84ff", interactive: true, shape: "circle" },
+          }),
+        ],
+      );
+
+      let bar = null;
+      function setBar(mode) {
+        bar?.unbind();
+        bar = null;
+        $("bar").style.height = "";
+        window.demo.setHtmlBar(mode === "html");
+        if (mode === "native") {
+          const island = bindIsland($("bar"), { content: composer, fit: "height" });
+          island.on("submit", ({ value }) => value.trim() && post(value));
+          island.on("press", () => log("press: send (type, then press Return to post)"));
+          bar = island;
+        } else if (mode === "region") {
+          $("bar").style.height = "56px";
+          bar = bindRegion($("bar"), { cornerRadius: 28 });
+        }
+      }
+
+      // --- Tool strip: SwiftUI buttons that morph open, driven by state held here -------------
+
+      let expanded = false;
+      const circle = (id, symbol, weight = "medium") =>
+        ui.button({
+          id,
+          label: ui.symbol(symbol, { size: 17, weight, frame: { width: 48, height: 48 } }),
+          glass: { interactive: true, shape: "circle" },
+        });
+      const strip = () =>
+        ui.glassContainer({ spacing: 6, padding: 18 }, [
+          ui.hstack({ spacing: 12 }, [
+            circle("toggle", expanded ? "xmark" : "plus", "semibold"),
+            ...(expanded ? ["camera.fill", "photo.fill", "mic.fill", "doc.fill"].map((symbol) => circle(symbol, symbol)) : []),
+            ui.slider({ id: "level", value: 0.6, frame: { width: 150 }, padding: { horizontal: 18, vertical: 14 }, glass: true }),
+          ]),
+        ]);
+
+      let tools = null;
+      function setTools(visible) {
+        tools?.unbind();
+        tools = null;
+        if (!visible) return;
+        tools = bindIsland($("tools"), { content: strip(), fit: "both" });
+        tools.on("press", ({ node }) => {
+          if (node === "toggle") {
+            expanded = !expanded;
+            tools.update({ content: strip(), animation: "bouncy" });
+          }
+          log(`press: ${node}`);
+        });
+        tools.on("change", ({ node, value }) => log(`change: ${node} = ${Number(value).toFixed(2)}`));
+      }
+
+      // --- Plain regions: a panel, shaped glass, merging droplets, presets, a scrolling row ---
+
+      const bindings = new Map();
+      function toggle(name, visible, bind) {
+        for (const binding of bindings.get(name) ?? []) binding.unbind();
+        bindings.delete(name);
+        if (visible) bindings.set(name, [bind()].flat());
+      }
+
+      const group = createGroup({ spacing: 40 });
+      const tiles = [GlassVariant.regular, GlassVariant.clear, GlassVariant.dock, GlassVariant.bubbles, GlassVariant.control, GlassVariant.loupe].map(
+        (variant, index) => {
+          const tile = document.createElement("div");
+          tile.className = "anchor tile";
+          tile.style.left = `${300 + index * 100}px`;
+          tile.hidden = true;
+          document.body.append(tile);
+          return { tile, variant };
+        },
+      );
+
+      function apply() {
+        toggle("panel", $("c-panel").checked, () =>
+          bindRegion($("panel"), {
+            cornerRadius: 30,
+            style: $("c-clear").checked ? "clear" : "regular",
+            interactive: $("c-press").checked,
+            tint: $("c-tint").checked ? `${$("c-tintcolor").value}66` : null,
+          }),
+        );
+        toggle("shape", $("c-shape").checked, () =>
+          bindIsland($("shape"), {
+            passthrough: true,
+            content: ui.spacer({
+              frame: { maxWidth: "infinity", maxHeight: "infinity" },
+              glass: { shape: { type: "text", text: $("c-word").value || " ", weight: "black", design: "rounded" } },
+            }),
+          }),
+        );
+        $("drop-b").style.left = `${300 + 220 + Number($("c-gap").value)}px`;
+        toggle("drops", $("c-drops").checked, () => [
+          bindRegion($("drop-a"), { cornerRadius: 30, group }),
+          bindRegion($("drop-b"), { cornerRadius: 30, group }),
+        ]);
+        for (const { tile } of tiles) tile.hidden = !$("c-tiles").checked;
+        toggle("tiles", $("c-tiles").checked, () =>
+          tiles.map(({ tile, variant }) => bindRegion(tile, { cornerRadius: 22, unstable_variant: variant })),
+        );
+        toggle("row", $("c-row").checked, () => bindRegion(row, { cornerRadius: 20 }));
+      }
+
+      $("controls").addEventListener("input", (event) => {
+        if (event.target.id === "c-bar") setBar(event.target.value);
+        else if (event.target.id === "c-tools") setTools(event.target.checked);
+        else apply();
+      });
+      $("c-window").addEventListener("click", () => window.demo.openGlassWindow());
+
+      setBar("native");
+      setTools(true);
+      apply();
+    </script>
+  </body>
+</html>
