@@ -10,7 +10,7 @@ electron-glasskit is a fork of [electron-liquid-glass](https://github.com/Meridi
 
 ## [Unreleased]
 
-## [0.1.0] - Unreleased
+## [0.1.0] - 2026-10-16
 
 The first release under this name. Compared with electron-liquid-glass 1.1.1:
 
@@ -46,3 +46,6 @@ The first release under this name. Compared with electron-liquid-glass 1.1.1:
 
 - `liquidGlass.addView()` and its `unstable_set*` methods. They still work; use `setBackground()`.
 
+
+[Unreleased]: https://github.com/OpenSource03/electron-glasskit/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/OpenSource03/electron-glasskit/releases/tag/v0.1.0
